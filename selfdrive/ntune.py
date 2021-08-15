@@ -3,23 +3,19 @@ import fcntl
 import signal
 import json
 import numpy as np
-from common.realtime import DT_CTRL
 
 CONF_PATH = '/data/ntune/'
-CONF_COMMON_FILE = '/data/ntune/common.json'
 CONF_LQR_FILE = '/data/ntune/lat_lqr.json'
-CONF_INDI_FILE = '/data/ntune/lat_indi.json'
 
 
 class nTune():
-  def __init__(self, CP=None, controller=None):
+  def __init__(self, CP=None, controller=None, group=None):
 
     self.invalidated = False
-
     self.CP = CP
-
     self.lqr = None
-    self.indi = None
+    self.group = group
+    self.config = {}
 
     if "LatControlLQR" in str(type(controller)):
       self.lqr = controller
@@ -29,11 +25,8 @@ class nTune():
       self.lqr.C = np.array([1., 0.]).reshape((1, 2))
       self.lqr.K = np.array([-110., 451.]).reshape((1, 2))
       self.lqr.L = np.array([0.33, 0.318]).reshape((2, 1))
-    elif "LatControlINDI" in str(type(controller)):
-      self.indi = controller
-      self.file = CONF_INDI_FILE
     else:
-      self.file = CONF_COMMON_FILE
+      self.file = CONF_PATH + group + ".json"
 
     if not os.path.exists(CONF_PATH):
       os.makedirs(CONF_PATH)
@@ -74,8 +67,9 @@ class nTune():
       if os.path.isfile(self.file):
         with open(self.file, 'r') as f:
           self.config = json.load(f)
-          if self.checkValid():
-            self.write_config(self.config)
+
+        if self.checkValid():
+          self.write_config(self.config)
 
           self.update()
       else:
@@ -88,9 +82,7 @@ class nTune():
           self.update()
 
     except:
-      return False
-
-    return True
+      self.write_default()
 
   def checkValue(self, key, min_, max_, default_):
     updated = False
@@ -111,17 +103,15 @@ class nTune():
 
     if self.lqr is not None:
       return self.checkValidLQR()
-    elif self.indi is not None:
-      return self.checkValidINDI()
-    else:
+    elif self.group == "common":
       return self.checkValidCommon()
+    else:
+      return self.checkValidISCC()
 
   def update(self):
 
     if self.lqr is not None:
       self.updateLQR()
-    elif self.indi is not None:
-      self.updateINDI()
 
   def checkValidCommon(self):
     updated = False
@@ -160,22 +150,16 @@ class nTune():
 
     return updated
 
-  def checkValidINDI(self):
+  def checkValidISCC(self):
     updated = False
 
-    if self.checkValue("innerLoopGain", 0.5, 10.0, 3.3):
+    if self.checkValue("sccGasFactor", 0.5, 1.5, 1.0):
       updated = True
 
-    if self.checkValue("outerLoopGain", 0.5, 10.0, 2.7):
+    if self.checkValue("sccBrakeFactor", 0.5, 1.5, 1.0):
       updated = True
 
-    if self.checkValue("timeConstant", 0.1, 5.0, 2.0):
-      updated = True
-
-    if self.checkValue("actuatorEffectiveness", 0.1, 5.0, 1.7):
-      updated = True
-
-    if self.checkValue("steerLimitTimer", 0.5, 3.0, 0.8):
+    if self.checkValue("sccCurvatureFactor", 0.5, 1.5, 1.0):
       updated = True
 
     return updated
@@ -192,21 +176,7 @@ class nTune():
     self.lqr.x_hat = np.array([[0], [0]])
     self.lqr.reset()
 
-  def updateINDI(self):
-
-    self.indi.RC = float(self.config["timeConstant"])
-    self.indi.G = float(self.config["actuatorEffectiveness"])
-    self.indi.outer_loop_gain = float(self.config["outerLoopGain"])
-    self.indi.inner_loop_gain = float(self.config["innerLoopGain"])
-    self.indi.alpha = 1. - DT_CTRL / (self.indi.RC + DT_CTRL)
-
-    self.indi.sat_limit = float(self.config["steerLimitTimer"])
-
-    self.indi.reset()
-
   def read_cp(self):
-
-    self.config = {}
 
     try:
       if self.CP is not None:
@@ -217,15 +187,6 @@ class nTune():
           self.config["dcGain"] = round(self.CP.lateralTuning.lqr.dcGain, 6)
           self.config["steerLimitTimer"] = round(self.CP.steerLimitTimer, 2)
           self.config["steerMax"] = round(self.CP.steerMaxV[0], 2)
-
-        elif self.CP.lateralTuning.which() == 'indi' and self.indi is not None:
-          self.config["innerLoopGain"] = round(self.CP.lateralTuning.indi.innerLoopGain, 2)
-          self.config["outerLoopGain"] = round(self.CP.lateralTuning.indi.outerLoopGain, 2)
-          self.config["timeConstant"] = round(self.CP.lateralTuning.indi.timeConstant, 2)
-          self.config["actuatorEffectiveness"] = round(self.CP.lateralTuning.indi.actuatorEffectiveness, 2)
-          self.config["steerLimitTimer"] = round(self.CP.steerLimitTimer, 2)
-          self.config["steerMax"] = round(self.CP.steerMaxV[0], 2)
-
         else:
           self.config["useLiveSteerRatio"] = 1.
           self.config["steerRatio"] = round(self.CP.steerRatio, 2)
@@ -248,7 +209,7 @@ class nTune():
     try:
       with open(self.file, 'w') as f:
         json.dump(conf, f, indent=2, sort_keys=False)
-        os.chmod(self.file, 0o764)
+        os.chmod(self.file, 0o666)
     except IOError:
 
       try:
@@ -257,15 +218,17 @@ class nTune():
 
         with open(self.file, 'w') as f:
           json.dump(conf, f, indent=2, sort_keys=False)
-          os.chmod(self.file, 0o764)
+          os.chmod(self.file, 0o666)
       except:
         pass
 
-ntune = None
-def ntune_get(key):
-  global ntune
-  if ntune == None:
-    ntune = nTune()
+ntunes = {}
+def ntune_get(group, key):
+  global ntunes
+  if group not in ntunes:
+    ntunes[group] = nTune(group=group)
+
+  ntune = ntunes[group]
 
   if ntune.config == None or key not in ntune.config:
     ntune.read()
@@ -278,5 +241,11 @@ def ntune_get(key):
 
   return v
 
-def ntune_isEnabled(key):
-  return ntune_get(key) > 0.5
+def ntune_common_get(key):
+  return ntune_get("common", key)
+
+def ntune_common_enabled(key):
+  return ntune_common_get(key) > 0.5
+
+def ntune_scc_get(key):
+  return ntune_get("scc", key)

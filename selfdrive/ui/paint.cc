@@ -82,7 +82,30 @@ static void ui_draw_circle_image(const UIState *s, int center_x, int center_y, i
   ui_draw_circle_image(s, center_x, center_y, radius, image, nvgRGBA(0, 0, 0, (255 * bg_alpha)), img_alpha);
 }
 
-static void draw_lead(UIState *s, const cereal::RadarState::LeadData::Reader &lead_data, const vertex_data &vd) {
+static void draw_lead(UIState *s, const cereal::ModelDataV2::LeadDataV3::Reader &lead_data, const vertex_data &vd) {
+  // Draw lead car indicator
+  auto [x, y] = vd;
+
+  float fillAlpha = 0;
+  float speedBuff = 10.;
+  float leadBuff = 40.;
+  float d_rel = lead_data.getX()[0];
+  float v_rel = lead_data.getV()[0];
+  if (d_rel < leadBuff) {
+    fillAlpha = 255*(1.0-(d_rel/leadBuff));
+    if (v_rel < 0) {
+      fillAlpha += 255*(-1*(v_rel/speedBuff));
+    }
+    fillAlpha = (int)(fmin(fillAlpha, 255));
+  }
+
+  float sz = std::clamp((25 * 30) / (d_rel / 3 + 30), 15.0f, 30.0f) * 2.35;
+  x = std::clamp(x, 0.f, s->fb_w - sz / 2);
+  y = std::fmin(s->fb_h - sz * .6, y);
+  draw_chevron(s, x, y, sz, nvgRGBA(201, 34, 49, fillAlpha), COLOR_YELLOW);
+}
+
+static void draw_lead_radar(UIState *s, const cereal::RadarState::LeadData::Reader &lead_data, const vertex_data &vd) {
   // Draw lead car indicator
   auto [x, y] = vd;
 
@@ -224,10 +247,10 @@ static void ui_draw_vision_lane_lines(UIState *s) {
       ui_draw_line(s, scene.road_edge_vertices[i], &color, nullptr);
     }
     track_bg = nvgLinearGradient(s->vg, s->fb_w, s->fb_h, s->fb_w, s->fb_h * .4,
-                                          COLOR_WHITE_ALPHA(180), COLOR_WHITE_ALPHA(0));
+                                          COLOR_WHITE_ALPHA(150), COLOR_WHITE_ALPHA(0));
   } else {
     track_bg = nvgLinearGradient(s->vg, s->fb_w, s->fb_h, s->fb_w, s->fb_h * .4,
-                                          COLOR_RED_ALPHA(180), COLOR_RED_ALPHA(0));
+                                          COLOR_RED_ALPHA(150), COLOR_RED_ALPHA(0));
   }
   // paint path
   ui_draw_line(s, scene.track_vertices, nullptr, &track_bg);
@@ -242,22 +265,23 @@ static void ui_draw_world(UIState *s) {
 
   // Draw lead indicators if openpilot is handling longitudinal
   //if (s->scene.longitudinal_control) {
-    auto radar_state = (*s->sm)["radarState"].getRadarState();
-    auto lead_one = radar_state.getLeadOne();
-    auto lead_two = radar_state.getLeadTwo();
-    if (lead_one.getStatus()) {
 
-      if (s->custom_lead_mark)
-        draw_lead_custom(s, lead_one, s->scene.lead_vertices[0]);
-      else
-        draw_lead(s, lead_one, s->scene.lead_vertices[0]);
+    auto lead_one = (*s->sm)["modelV2"].getModelV2().getLeadsV3()[0];
+    auto lead_two = (*s->sm)["modelV2"].getModelV2().getLeadsV3()[1];
+    if (lead_one.getProb() > .5) {
+      draw_lead(s, lead_one, s->scene.lead_vertices[0]);
     }
-    if (lead_two.getStatus() && (std::abs(lead_one.getDRel() - lead_two.getDRel()) > 3.0)) {
+    if (lead_two.getProb() > .5 && (std::abs(lead_one.getX()[0] - lead_two.getX()[0]) > 3.0)) {
+      draw_lead(s, lead_two, s->scene.lead_vertices[1]);
+    }
 
+    auto radar_state = (*s->sm)["radarState"].getRadarState();
+    auto lead_radar = radar_state.getLeadOne();
+    if (lead_radar.getStatus() && lead_radar.getRadar()) {
       if (s->custom_lead_mark)
-        draw_lead_custom(s, lead_two, s->scene.lead_vertices[1]);
+        draw_lead_custom(s, lead_radar, s->scene.lead_vertices_radar[0]);
       else
-        draw_lead(s, lead_two, s->scene.lead_vertices[1]);
+        draw_lead_radar(s, lead_radar, s->scene.lead_vertices_radar[0]);
     }
   //}
 
@@ -641,15 +665,21 @@ static void bb_ui_draw_basic_info(UIState *s)
     int mdps_bus = scene->car_params.getMdpsBus();
     int scc_bus = scene->car_params.getSccBus();
 
-    snprintf(str, sizeof(str), "SR(%.2f) SRC(%.2f) SAD(%.2f) AO(%.2f/%.2f) MDPS(%d) SCC(%d)%s%s", controls_state.getSteerRatio(),
-                                                        controls_state.getSteerRateCost(),
-                                                        controls_state.getSteerActuatorDelay(),
-                                                        live_params.getAngleOffsetDeg(),
-                                                        live_params.getAngleOffsetAverageDeg(),
-                                                        mdps_bus, scc_bus,
-                                                        sccLogMessage.size() > 0 ? ", " : "",
-                                                        sccLogMessage.c_str()
-                                                        );
+    snprintf(str, sizeof(str), "AO(%.2f/%.2f) SR(%.2f) SRC(%.2f) SAD(%.2f) BUS(MDPS:%d SCC:%d) SCC(%.2f/%.2f/%.2f)%s%s",
+
+                        live_params.getAngleOffsetDeg(),
+                        live_params.getAngleOffsetAverageDeg(),
+                        controls_state.getSteerRatio(),
+                        controls_state.getSteerRateCost(),
+                        controls_state.getSteerActuatorDelay(),
+
+                        mdps_bus, scc_bus,
+                        controls_state.getSccGasFactor(),
+                        controls_state.getSccBrakeFactor(),
+                        controls_state.getSccCurvatureFactor(),
+                        sccLogMessage.size() > 0 ? ", " : "",
+                        sccLogMessage.c_str()
+                        );
 
     int x = bdr_s * 2;
     int y = s->fb_h - 24;
