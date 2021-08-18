@@ -703,12 +703,16 @@ static void bb_ui_draw_debug(UIState *s)
 
     auto controls_state = (*s->sm)["controlsState"].getControlsState();
     auto car_control = (*s->sm)["carControl"].getCarControl();
+    auto car_state = (*s->sm)["carState"].getCarState();
 
     float applyAccel = controls_state.getApplyAccel();
 
     float aReqValue = controls_state.getAReqValue();
     float aReqValueMin = controls_state.getAReqValueMin();
     float aReqValueMax = controls_state.getAReqValueMax();
+
+    int sccStockCamAct = (int)controls_state.getSccStockCamAct();
+    int sccStockCamStatus = (int)controls_state.getSccStockCamStatus();
 
     int longControlState = (int)controls_state.getLongControlState();
     float vPid = controls_state.getVPid();
@@ -753,6 +757,26 @@ static void bb_ui_draw_debug(UIState *s)
     y += height;
     snprintf(str, sizeof(str), "%.3f (%.3f/%.3f)", aReqValue, aReqValueMin, aReqValueMax);
     ui_draw_text(s, text_x, y, str, 22 * 2.5, textColor, "sans-regular");
+
+    y += height;
+    snprintf(str, sizeof(str), "Cam: %d/%d", sccStockCamAct, sccStockCamStatus);
+    ui_draw_text(s, text_x, y, str, 22 * 2.5, textColor, "sans-regular");
+
+    y += height;
+    snprintf(str, sizeof(str), "Torque:%.1f/%.1f", car_state.getSteeringTorque(), car_state.getSteeringTorqueEps());
+    ui_draw_text(s, text_x, y, str, 22 * 2.5, textColor, "sans-regular");
+
+    auto lead_radar = (*s->sm)["radarState"].getRadarState().getLeadOne();
+    auto lead_one = (*s->sm)["modelV2"].getModelV2().getLeadsV3()[0];
+
+    float radar_dist = lead_radar.getStatus() && lead_radar.getRadar() ? lead_radar.getDRel() : 0;
+    float vision_dist = lead_one.getProb() > .5 ? lead_one.getX()[0] : 0;
+
+    y += height;
+    snprintf(str, sizeof(str), "Lead: %.1f/%.1f/%.1f", radar_dist, vision_dist, (radar_dist - vision_dist));
+    ui_draw_text(s, text_x, y, str, 22 * 2.5, textColor, "sans-regular");
+
+
 }
 
 
