@@ -206,10 +206,19 @@ static void ui_draw_line(UIState *s, const line_vertices_data &vd, NVGcolor *col
 static void ui_draw_vision_lane_lines(UIState *s) {
   const UIScene &scene = s->scene;
   NVGpaint track_bg;
+  float red_lvl_line = 0;
+  float green_lvl_line = 0;  
   if (!scene.end_to_end) {
     // paint lanelines
     for (int i = 0; i < std::size(scene.lane_line_vertices); i++) {
-      NVGcolor color = nvgRGBAf(1.0, 1.0, 1.0, scene.lane_line_probs[i]);
+      if (scene.lane_line_probs[i] > 0.4){
+        red_lvl_line = 1.0 - ((scene.lane_line_probs[i] - 0.4) * 2.5);
+        green_lvl_line = 1.0;
+      } else {
+        red_lvl_line = 1.0;
+        green_lvl_line = 1.0 - ((0.4 - scene.lane_line_probs[i]) * 2.5);
+      }
+      NVGcolor color = nvgRGBAf(red_lvl_line, green_lvl_line, 0, 1);
       ui_draw_line(s, scene.lane_line_vertices[i], &color, nullptr);
     }
 
