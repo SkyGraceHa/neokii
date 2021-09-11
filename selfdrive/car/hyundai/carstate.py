@@ -1,5 +1,5 @@
 from cereal import car
-from selfdrive.car.hyundai.values import DBC, STEER_THRESHOLD, FEATURES, CAR, HYBRID_CAR, EV_CAR
+from selfdrive.car.hyundai.values import DBC, STEER_THRESHOLD, FEATURES, CAR, HYBRID_CAR, EV_HYBRID_CAR
 from selfdrive.car.interfaces import CarStateBase
 from opendbc.can.parser import CANParser
 from opendbc.can.can_define import CANDefine
@@ -98,7 +98,7 @@ class CarState(CarStateBase):
     ret.steeringTorqueEps = cp_mdps.vl["MDPS12"]['CR_Mdps_OutTq']
     ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
 
-    if cp_mdps.vl["MDPS12"]['CF_Mdps_ToiUnavail'] != 0:
+    if not ret.standstill and cp_mdps.vl["MDPS12"]['CF_Mdps_ToiUnavail'] != 0:
       self.mdps_error_cnt += 1
     else:
       self.mdps_error_cnt = 0
@@ -114,6 +114,8 @@ class CarState(CarStateBase):
     ret.cruiseState.available = (cp_scc.vl["SCC11"]["MainMode_ACC"] != 0) if not self.no_radar else \
                                       cp.vl['EMS16']['CRUISE_LAMP_M'] != 0
     ret.cruiseState.standstill = cp_scc.vl["SCC11"]['SCCInfoDisplay'] == 4. if not self.no_radar else False
+
+    ret.cruiseState.enabledAcc = ret.cruiseState.enabled
 
     if ret.cruiseState.enabled:
       ret.cruiseState.speed = cp_scc.vl["SCC11"]['VSetDis'] * self.speed_conv_to_ms if not self.no_radar else \
@@ -132,7 +134,7 @@ class CarState(CarStateBase):
 
     ret.gasPressed = cp.vl["TCS13"]["DriverOverride"] == 1
 
-    if self.CP.carFingerprint in (HYBRID_CAR | EV_CAR):
+    if self.CP.carFingerprint in EV_HYBRID_CAR:
       if self.CP.carFingerprint in HYBRID_CAR:
         ret.gas = cp.vl["E_EMS11"]["CR_Vcu_AccPedDep_Pos"] / 254.
       else:
@@ -368,7 +370,7 @@ class CarState(CarStateBase):
         ("CF_Lvr_Gear","LVR12",0),
       ]
 
-    if CP.carFingerprint in (HYBRID_CAR | EV_CAR):
+    if CP.carFingerprint in EV_HYBRID_CAR:
       if CP.carFingerprint in HYBRID_CAR:
         signals += [
           ("CR_Vcu_AccPedDep_Pos", "E_EMS11", 0)

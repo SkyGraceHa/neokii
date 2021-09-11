@@ -13,7 +13,7 @@ from common.basedir import BASEDIR
 from common.params import Params, ParamKeyType
 from common.text_window import TextWindow
 from selfdrive.boardd.set_time import set_time
-from selfdrive.hardware import HARDWARE, PC
+from selfdrive.hardware import HARDWARE, PC, EON
 from selfdrive.manager.helpers import unblock_stdout
 from selfdrive.manager.process import ensure_running, launcher
 from selfdrive.manager.process_config import managed_processes
@@ -72,8 +72,6 @@ def manager_init():
   if params.get("Passive") is None:
     raise Exception("Passive must be set to continue")
 
-  os.umask(0)  # Make sure we can create files with 777 permissions
-
   # Create folders needed for msgq
   try:
     os.mkdir("/dev/shm")
@@ -126,10 +124,11 @@ def manager_cleanup():
 
 def manager_thread():
 
-  Process(name="shutdownd", target=launcher, args=("selfdrive.shutdownd",)).start()
+  if EON:
+    Process(name="shutdownd", target=launcher, args=("selfdrive.shutdownd",)).start()
+    system("am startservice com.neokii.optool/.MainService")
+
   Process(name="road_speed_limiter", target=launcher, args=("selfdrive.road_speed_limiter",)).start()
-  system("am startservice com.neokii.optool/.MainService")
-  system("am startservice com.neokii.openpilot/.MainService")
 
   cloudlog.info("manager start")
   cloudlog.info({"environ": os.environ})

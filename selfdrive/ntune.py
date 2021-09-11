@@ -4,6 +4,8 @@ import signal
 import json
 import numpy as np
 
+from selfdrive.hardware import TICI
+
 CONF_PATH = '/data/ntune/'
 CONF_LQR_FILE = '/data/ntune/lat_lqr.json'
 
@@ -136,7 +138,7 @@ class nTune():
     if self.checkValue("steerRateCost", 0.1, 1.5, 0.4):
       updated = True
 
-    if self.checkValue("cameraOffset", -1.0, 1.0, 0.06):
+    if self.checkValue("cameraOffset", -1.0, 1.0, -0.04 if TICI else 0.06):
       updated = True
 
     return updated
@@ -168,6 +170,9 @@ class nTune():
       updated = True
 
     if self.checkValue("sccCurvatureFactor", 0.5, 1.5, 1.0):
+      updated = True
+
+    if self.checkValue("longitudinalActuatorDelay", 0.1, 1.5, 0.2):
       updated = True
 
     return updated

@@ -289,15 +289,11 @@ struct CanData {
 }
 
 struct DeviceState @0xa4d8b5af2aa492eb {
-  freeSpacePercent @7 :Float32;
-  memoryUsagePercent @19 :Int8;
-  cpuUsagePercent @20 :Int8;
-  gpuUsagePercent @33 :Int8;
   usbOnline @12 :Bool;
   networkType @22 :NetworkType;
   networkInfo @31 :NetworkInfo;
-  offroadPowerUsageUwh @23 :UInt32;
   networkStrength @24 :NetworkStrength;
+  offroadPowerUsageUwh @23 :UInt32;
   carBatteryCapacityUwh @25 :UInt32;
 
   fanSpeedPercentDesired @10 :UInt16;
@@ -305,13 +301,16 @@ struct DeviceState @0xa4d8b5af2aa492eb {
   startedMonoTime @13 :UInt64;
 
   lastAthenaPingTime @32 :UInt64;
-  wifiIpAddress @34 :Text;
+
+  # system utilization
+  freeSpacePercent @7 :Float32;
+  memoryUsagePercent @19 :Int8;
+  gpuUsagePercent @33 :Int8;
+  cpuUsagePercent @34 :List(Int8);  # per-core cpu usage
 
   # power
   batteryPercent @8 :Int16;
-  batteryStatus @9 :Text;
   batteryCurrent @15 :Int32;
-  batteryVoltage @16 :Int32;
   chargingError @17 :Bool;
   chargingDisabled @18 :Bool;
 
@@ -319,9 +318,10 @@ struct DeviceState @0xa4d8b5af2aa492eb {
   cpuTempC @26 :List(Float32);
   gpuTempC @27 :List(Float32);
   memoryTempC @28 :Float32;
-  batteryTempC @29 :Float32;
   ambientTempC @30 :Float32;
   thermalStatus @14 :ThermalStatus;
+  
+  wifiIpAddress @35 :Text;
 
   enum ThermalStatus {
     green @0;
@@ -366,6 +366,10 @@ struct DeviceState @0xa4d8b5af2aa492eb {
   gpuDEPRECATED @5 :UInt16;
   batDEPRECATED @6 :UInt32;
   pa0DEPRECATED @21 :UInt16;
+  cpuUsagePercentDEPRECATED @20 :Int8;
+  batteryStatusDEPRECATED @9 :Text;
+  batteryVoltageDEPRECATED @16 :Int32;
+  batteryTempCDEPRECATED @29 :Float32;
 }
 
 struct PandaState @0xa7649e2575e4591e {
@@ -531,7 +535,7 @@ struct ControlsState @0x97ff69c53601abf1 {
   enabled @19 :Bool;
   active @36 :Bool;
 
-  longControlState @30 :LongControlState;
+  longControlState @30 :Car.CarControl.Actuators.LongControlState;
   vPid @2 :Float32;
   vTargetLead @3 :Float32;
   vCruise @22 :Float32;
@@ -576,9 +580,10 @@ struct ControlsState @0x97ff69c53601abf1 {
   sccGasFactor @69 :Float32;
   sccBrakeFactor @70 :Float32;
   sccCurvatureFactor @71 :Float32;
+  longitudinalActuatorDelay @72 :Float32;
 
-  sccStockCamAct @72 :Float32;
-  sccStockCamStatus @73 :Float32;
+  sccStockCamAct @73 :Float32;
+  sccStockCamStatus @74 :Float32;
 
 
   enum OpenpilotState @0xdbe58b96d2d1ac61 {
@@ -586,13 +591,6 @@ struct ControlsState @0x97ff69c53601abf1 {
     preEnabled @1;
     enabled @2;
     softDisabling @3;
-  }
-
-  enum LongControlState {
-    off @0;
-    pid @1;
-    stopping @2;
-    starting @3;
   }
 
   enum AlertStatus {
@@ -1395,6 +1393,7 @@ struct RoadLimitSpeed {
     camLimitSpeed @5 :UInt16;
     sectionLimitSpeed @6 :UInt16;
     sectionLeftDist @7 :UInt16;
+    camSpeedFactor @8 :Float32;
 }
 
 struct Event {

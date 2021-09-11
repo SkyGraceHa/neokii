@@ -1,6 +1,5 @@
 #include "selfdrive/ui/paint.h"
 
-#include <algorithm>
 #include <cassert>
 
 #ifdef __APPLE__
@@ -17,10 +16,8 @@
 #include <nanovg_gl.h>
 #include <nanovg_gl_utils.h>
 
-#include "selfdrive/common/timing.h"
 #include "selfdrive/common/util.h"
 #include "selfdrive/hardware/hw.h"
-
 #include "selfdrive/ui/ui.h"
 #include "selfdrive/ui/extras.h"
 
@@ -204,31 +201,6 @@ static void ui_draw_line(UIState *s, const line_vertices_data &vd, NVGcolor *col
     nvgFillPaint(s->vg, *paint);
   }
   nvgFill(s->vg);
-}
-
-static void draw_vision_frame(UIState *s) {
-  glBindVertexArray(s->frame_vao);
-  mat4 *out_mat = &s->rear_frame_mat;
-  glActiveTexture(GL_TEXTURE0);
-
-  if (s->last_frame) {
-    glBindTexture(GL_TEXTURE_2D, s->texture[s->last_frame->idx]->frame_tex);
-    if (!Hardware::EON()) {
-      // this is handled in ion on QCOM
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, s->last_frame->width, s->last_frame->height,
-                   0, GL_RGB, GL_UNSIGNED_BYTE, s->last_frame->addr);
-    }
-  }
-
-  glUseProgram(s->gl_shader->prog);
-  glUniform1i(s->gl_shader->getUniformLocation("uTexture"), 0);
-  glUniformMatrix4fv(s->gl_shader->getUniformLocation("uTransform"), 1, GL_TRUE, out_mat->v);
-
-  assert(glGetError() == GL_NO_ERROR);
-  glEnableVertexAttribArray(0);
-  glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, (const void *)0);
-  glDisableVertexAttribArray(0);
-  glBindVertexArray(0);
 }
 
 static void ui_draw_vision_lane_lines(UIState *s) {
@@ -533,10 +505,10 @@ static void bb_ui_draw_measures_right(UIState *s, int bb_x, int bb_y, int bb_w )
     char uom_str[6];
     NVGcolor val_color = nvgRGBA(255, 255, 255, 200);
 
-    if(ambientTemp > 40.f) {
+    if(ambientTemp > 50.f) {
       val_color = nvgRGBA(255, 188, 3, 200);
     }
-    if(ambientTemp > 50.f) {
+    if(ambientTemp > 60.f) {
       val_color = nvgRGBA(255, 0, 0, 200);
     }
     snprintf(val_str, sizeof(val_str), "%.1f°", ambientTemp);
@@ -548,11 +520,8 @@ static void bb_ui_draw_measures_right(UIState *s, int bb_x, int bb_y, int bb_w )
     bb_ry = bb_y + bb_h;
   }
 
-  float batteryTemp = device_state.getBatteryTempC();
-  bool batteryless =  batteryTemp < -20;
-
   // add battery level
-    if(UI_FEATURE_RIGHT_BATTERY_LEVEL && !batteryless) {
+  if(UI_FEATURE_RIGHT_BATTERY_LEVEL && !Hardware::TICI()) {
     char val_str[16];
     char uom_str[6];
     char bat_lvl[4] = "";
@@ -665,15 +634,15 @@ static void bb_ui_draw_basic_info(UIState *s)
     int mdps_bus = scene->car_params.getMdpsBus();
     int scc_bus = scene->car_params.getSccBus();
 
-    snprintf(str, sizeof(str), "AO(%.2f/%.2f) SR(%.2f) SRC(%.2f) SAD(%.2f) BUS(MDPS:%d SCC:%d) SCC(%.2f/%.2f/%.2f)%s%s",
+    snprintf(str, sizeof(str), "AO(%.2f/%.2f) SR(%.2f) SRC(%.2f) SAD(%.2f) BUS(MDPS:%d SCC:%d) LAD(%.2f) SCC(%.2f/%.2f/%.2f)%s%s",
 
                         live_params.getAngleOffsetDeg(),
                         live_params.getAngleOffsetAverageDeg(),
                         controls_state.getSteerRatio(),
                         controls_state.getSteerRateCost(),
                         controls_state.getSteerActuatorDelay(),
-
                         mdps_bus, scc_bus,
+                        controls_state.getLongitudinalActuatorDelay(),
                         controls_state.getSccGasFactor(),
                         controls_state.getSccBrakeFactor(),
                         controls_state.getSccCurvatureFactor(),
@@ -719,8 +688,7 @@ static void bb_ui_draw_debug(UIState *s)
     float upAccelCmd = controls_state.getUpAccelCmd();
     float uiAccelCmd = controls_state.getUiAccelCmd();
     float ufAccelCmd = controls_state.getUfAccelCmd();
-    float gas = car_control.getActuators().getGas();
-    float brake = car_control.getActuators().getBrake();
+    float accel = car_control.getActuators().getAccel();
 
     const char* long_state[] = {"off", "pid", "stopping", "starting"};
 
@@ -747,11 +715,11 @@ static void bb_ui_draw_debug(UIState *s)
     ui_draw_text(s, text_x, y, str, 22 * 2.5, textColor, "sans-regular");
 
     y += height;
-    snprintf(str, sizeof(str), "Gas: %.3f, Brake: %.3f", gas, brake);
+    snprintf(str, sizeof(str), "Accel: %.3f", accel);
     ui_draw_text(s, text_x, y, str, 22 * 2.5, textColor, "sans-regular");
 
     y += height;
-    snprintf(str, sizeof(str), "Accel: %.3f/%.3f", applyAccel, aReqValue);
+    snprintf(str, sizeof(str), "Apply Accel: %.3f, Stock Accel: %.3f", applyAccel, aReqValue);
     ui_draw_text(s, text_x, y, str, 22 * 2.5, textColor, "sans-regular");
 
     y += height;
@@ -770,13 +738,11 @@ static void bb_ui_draw_debug(UIState *s)
     auto lead_one = (*s->sm)["modelV2"].getModelV2().getLeadsV3()[0];
 
     float radar_dist = lead_radar.getStatus() && lead_radar.getRadar() ? lead_radar.getDRel() : 0;
-    float vision_dist = lead_one.getProb() > .5 ? lead_one.getX()[0] : 0;
+    float vision_dist = lead_one.getProb() > .5 ? (lead_one.getX()[0] - 1.5) : 0;
 
     y += height;
     snprintf(str, sizeof(str), "Lead: %.1f/%.1f/%.1f", radar_dist, vision_dist, (radar_dist - vision_dist));
     ui_draw_text(s, text_x, y, str, 22 * 2.5, textColor, "sans-regular");
-
-
 }
 
 
@@ -890,10 +856,10 @@ static void ui_draw_vision_maxspeed(UIState *s) {
   bool longControl = scc_smoother.getLongControl();
 
   // kph
-  float cruiseVirtualMaxSpeed = scc_smoother.getCruiseVirtualMaxSpeed();
-  float cruiseRealMaxSpeed = scc_smoother.getCruiseRealMaxSpeed();
+  float applyMaxSpeed = scc_smoother.getApplyMaxSpeed();
+  float cruiseMaxSpeed = scc_smoother.getCruiseMaxSpeed();
 
-  bool is_cruise_set = (cruiseRealMaxSpeed > 0 && cruiseRealMaxSpeed < 255);
+  bool is_cruise_set = (cruiseMaxSpeed > 0 && cruiseMaxSpeed < 255);
 
   const Rect rect = {bdr_s * 2, int(bdr_s * 1.5), 184, 202};
   ui_fill_rect(s->vg, rect, COLOR_BLACK_ALPHA(100), 30.);
@@ -907,16 +873,16 @@ static void ui_draw_vision_maxspeed(UIState *s) {
     char str[256];
 
     if(s->scene.is_metric)
-        snprintf(str, sizeof(str), "%d", (int)(cruiseVirtualMaxSpeed + 0.5));
+        snprintf(str, sizeof(str), "%d", (int)(applyMaxSpeed + 0.5));
     else
-        snprintf(str, sizeof(str), "%d", (int)(cruiseVirtualMaxSpeed*0.621371 + 0.5));
+        snprintf(str, sizeof(str), "%d", (int)(applyMaxSpeed*0.621371 + 0.5));
 
     ui_draw_text(s, text_x, 100, str, 33 * 2.5, COLOR_WHITE, "sans-semibold");
 
     if(s->scene.is_metric)
-        snprintf(str, sizeof(str), "%d", (int)(cruiseRealMaxSpeed + 0.5));
+        snprintf(str, sizeof(str), "%d", (int)(cruiseMaxSpeed + 0.5));
     else
-        snprintf(str, sizeof(str), "%d", (int)(cruiseRealMaxSpeed*0.621371 + 0.5));
+        snprintf(str, sizeof(str), "%d", (int)(cruiseMaxSpeed*0.621371 + 0.5));
 
     ui_draw_text(s, text_x, 195, str, 48 * 2.5, COLOR_WHITE, "sans-bold");
   }
@@ -983,19 +949,14 @@ static void ui_draw_vision(UIState *s) {
 }
 
 void ui_draw(UIState *s, int w, int h) {
-  const bool draw_vision = s->scene.started && s->vipc_client->connected;
-
-  glViewport(0, 0, s->fb_w, s->fb_h);
-  if (draw_vision) {
-    draw_vision_frame(s);
+  // Update intrinsics matrix after possible wide camera toggle change
+  if (s->fb_w != w || s->fb_h != h) {
+    ui_resize(s, w, h);
   }
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  // NVG drawing functions - should be no GL inside NVG frame
   nvgBeginFrame(s->vg, s->fb_w, s->fb_h, 1.0f);
-  if (draw_vision) {
-    ui_draw_vision(s);
-  }
+  ui_draw_vision(s);
   nvgEndFrame(s->vg);
   glDisable(GL_BLEND);
 }
@@ -1030,49 +991,7 @@ void ui_fill_rect(NVGcontext *vg, const Rect &r, const NVGpaint &paint, float ra
   fill_rect(vg, r, nullptr, &paint, radius);
 }
 
-static const char frame_vertex_shader[] =
-#ifdef NANOVG_GL3_IMPLEMENTATION
-  "#version 150 core\n"
-#else
-  "#version 300 es\n"
-#endif
-  "in vec4 aPosition;\n"
-  "in vec4 aTexCoord;\n"
-  "uniform mat4 uTransform;\n"
-  "out vec4 vTexCoord;\n"
-  "void main() {\n"
-  "  gl_Position = uTransform * aPosition;\n"
-  "  vTexCoord = aTexCoord;\n"
-  "}\n";
-
-static const char frame_fragment_shader[] =
-#ifdef NANOVG_GL3_IMPLEMENTATION
-  "#version 150 core\n"
-#else
-  "#version 300 es\n"
-#endif
-  "precision mediump float;\n"
-  "uniform sampler2D uTexture;\n"
-  "in vec4 vTexCoord;\n"
-  "out vec4 colorOut;\n"
-  "void main() {\n"
-  "  colorOut = texture(uTexture, vTexCoord.xy);\n"
-#ifdef QCOM
-  "  vec3 dz = vec3(0.0627f, 0.0627f, 0.0627f);\n"
-  "  colorOut.rgb = ((vec3(1.0f, 1.0f, 1.0f) - dz) * colorOut.rgb / vec3(1.0f, 1.0f, 1.0f)) + dz;\n"
-#endif
-  "}\n";
-
-static const mat4 device_transform = {{
-  1.0,  0.0, 0.0, 0.0,
-  0.0,  1.0, 0.0, 0.0,
-  0.0,  0.0, 1.0, 0.0,
-  0.0,  0.0, 0.0, 1.0,
-}};
-
 void ui_nvg_init(UIState *s) {
-  // init drawing
-
   // on EON, we enable MSAA
   s->vg = Hardware::EON() ? nvgCreate(0) : nvgCreate(NVG_ANTIALIAS | NVG_STENCIL_STROKES | NVG_DEBUG);
   assert(s->vg);
@@ -1106,45 +1025,6 @@ void ui_nvg_init(UIState *s) {
     s->images[name] = nvgCreateImage(s->vg, file, 1);
     assert(s->images[name] != 0);
   }
-
-  // init gl
-  s->gl_shader = std::make_unique<GLShader>(frame_vertex_shader, frame_fragment_shader);
-  GLint frame_pos_loc = glGetAttribLocation(s->gl_shader->prog, "aPosition");
-  GLint frame_texcoord_loc = glGetAttribLocation(s->gl_shader->prog, "aTexCoord");
-
-  glViewport(0, 0, s->fb_w, s->fb_h);
-
-  glDisable(GL_DEPTH_TEST);
-
-  assert(glGetError() == GL_NO_ERROR);
-
-  float x1 = 1.0, x2 = 0.0, y1 = 1.0, y2 = 0.0;
-  const uint8_t frame_indicies[] = {0, 1, 2, 0, 2, 3};
-  const float frame_coords[4][4] = {
-    {-1.0, -1.0, x2, y1}, //bl
-    {-1.0,  1.0, x2, y2}, //tl
-    { 1.0,  1.0, x1, y2}, //tr
-    { 1.0, -1.0, x1, y1}, //br
-  };
-
-  glGenVertexArrays(1, &s->frame_vao);
-  glBindVertexArray(s->frame_vao);
-  glGenBuffers(1, &s->frame_vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, s->frame_vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(frame_coords), frame_coords, GL_STATIC_DRAW);
-  glEnableVertexAttribArray(frame_pos_loc);
-  glVertexAttribPointer(frame_pos_loc, 2, GL_FLOAT, GL_FALSE,
-                        sizeof(frame_coords[0]), (const void *)0);
-  glEnableVertexAttribArray(frame_texcoord_loc);
-  glVertexAttribPointer(frame_texcoord_loc, 2, GL_FLOAT, GL_FALSE,
-                        sizeof(frame_coords[0]), (const void *)(sizeof(float) * 2));
-  glGenBuffers(1, &s->frame_ibo);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s->frame_ibo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(frame_indicies), frame_indicies, GL_STATIC_DRAW);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
-
-  ui_resize(s, s->fb_w, s->fb_h);
 }
 
 void ui_resize(UIState *s, int width, int height) {
@@ -1152,24 +1032,10 @@ void ui_resize(UIState *s, int width, int height) {
   s->fb_h = height;
 
   auto intrinsic_matrix = s->wide_camera ? ecam_intrinsic_matrix : fcam_intrinsic_matrix;
-
   float zoom = ZOOM / intrinsic_matrix.v[0];
-
   if (s->wide_camera) {
     zoom *= 0.5;
   }
-
-  float zx = zoom * 2 * intrinsic_matrix.v[2] / width;
-  float zy = zoom * 2 * intrinsic_matrix.v[5] / height;
-
-  const mat4 frame_transform = {{
-    zx, 0.0, 0.0, 0.0,
-    0.0, zy, 0.0, -y_offset / height * 2,
-    0.0, 0.0, 1.0, 0.0,
-    0.0, 0.0, 0.0, 1.0,
-  }};
-
-  s->rear_frame_mat = matmul(device_transform, frame_transform);
 
   // Apply transformation such that video pixel coordinates match video
   // 1) Put (0, 0) in the middle of the video

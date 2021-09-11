@@ -1,4 +1,5 @@
 import os
+import re
 from functools import cached_property
 from enum import IntEnum
 import subprocess
@@ -266,6 +267,8 @@ class Tici(HardwareBase):
   def set_power_save(self, powersave_enabled):
     # amplifier, 100mW at idle
     self.amplifier.set_global_shutdown(amp_disabled=powersave_enabled)
+    if not powersave_enabled:
+      self.amplifier.initialize_configuration()
 
     # offline big cluster, leave core 4 online for boardd
     for i in range(5, 8):
@@ -309,3 +312,11 @@ class Tici(HardwareBase):
           pass
 
     return r
+
+  def get_ip_address(self):
+    try:
+      wlan = subprocess.check_output(["ifconfig", "wlan0"], encoding='utf8').strip()
+      pattern = re.compile(r'inet (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+      return pattern.search(wlan).group(1)
+    except Exception:
+      return "--"

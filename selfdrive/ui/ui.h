@@ -8,7 +8,7 @@
 #define UI_FEATURE_RIGHT 1
 
 #define UI_FEATURE_LEFT_Y 220
-#define UI_FEATURE_RIGHT_Y 20
+#define UI_FEATURE_RIGHT_Y 10
 
 #define UI_FEATURE_LEFT_REL_DIST 1
 #define UI_FEATURE_LEFT_REL_SPEED 1
@@ -34,11 +34,8 @@
 #include "nanovg.h"
 
 #include "cereal/messaging/messaging.h"
-#include "cereal/visionipc/visionipc.h"
-#include "cereal/visionipc/visionipc_client.h"
 #include "common/transformations/orientation.hpp"
 #include "selfdrive/camerad/cameras/camera_common.h"
-#include "selfdrive/common/glutil.h"
 #include "selfdrive/common/mat.h"
 #include "selfdrive/common/modeldata.h"
 #include "selfdrive/common/params.h"
@@ -78,12 +75,12 @@ typedef struct Alert {
   QString type;
   cereal::ControlsState::AlertSize size;
   AudibleAlert sound;
-  bool equal(Alert a2) {
+  bool equal(const Alert &a2) {
     return text1 == a2.text1 && text2 == a2.text2 && type == a2.type;
   }
 } Alert;
 
-const Alert CONTROLS_WAITING_ALERT = {"openpilot Unavailable", "Waiting for controls to start",
+const Alert CONTROLS_WAITING_ALERT = {"openpilot Unavailable", "Waiting for controls to start", 
                                       "controlsWaiting", cereal::ControlsState::AlertSize::MID,
                                       AudibleAlert::NONE};
 
@@ -155,15 +152,7 @@ typedef struct UIScene {
 } UIScene;
 
 typedef struct UIState {
-  VisionIpcClient * vipc_client;
-  VisionIpcClient * vipc_client_rear;
-  VisionIpcClient * vipc_client_wide;
-  VisionBuf * last_frame;
-
-  // framebuffer
-  int fb_w, fb_h;
-
-  // NVG
+  int fb_w = 0, fb_h = 0;
   NVGcontext *vg;
 
   // images
@@ -172,14 +161,7 @@ typedef struct UIState {
   std::unique_ptr<SubMaster> sm;
 
   UIStatus status;
-  UIScene scene;
-
-  // graphics
-  std::unique_ptr<GLShader> gl_shader;
-  std::unique_ptr<EGLImageTexture> texture[UI_BUF_COUNT];
-
-  GLuint frame_vao, frame_vbo, frame_ibo;
-  mat4 rear_frame_mat;
+  UIScene scene = {};
 
   bool awake;
 

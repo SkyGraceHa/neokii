@@ -82,6 +82,7 @@ class Planner():
       cluSpeedMs = sm['controlsState'].cluSpeedMs
       if v_ego > 3. and cluSpeedMs > 3.:
         v_cruise *= v_ego / cluSpeedMs
+        v_cruise = int(v_cruise * CV.MS_TO_KPH) * CV.KPH_TO_MS
 
     long_control_state = sm['controlsState'].longControlState
     force_slow_decel = sm['controlsState'].forceDecel
@@ -113,7 +114,7 @@ class Planner():
     for key in self.mpcs:
       self.mpcs[key].set_cur_state(self.v_desired, self.a_desired)
       self.mpcs[key].update(sm['carState'], sm['radarState'], v_cruise)
-      if self.mpcs[key].status and self.mpcs[key].a_solution[5] < next_a:
+      if self.mpcs[key].status and self.mpcs[key].a_solution[5] < next_a:  # picks slowest solution from accel in ~0.2 seconds
         self.longitudinalPlanSource = key
         self.v_desired_trajectory = self.mpcs[key].v_solution[:CONTROL_N]
         self.a_desired_trajectory = self.mpcs[key].a_solution[:CONTROL_N]
