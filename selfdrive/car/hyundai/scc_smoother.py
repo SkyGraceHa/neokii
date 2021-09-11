@@ -211,7 +211,7 @@ class SccSmoother:
     if not ascc_enabled:
       self.reset()
 
-    self.cal_target_speed(CS, clu11_speed, controls)
+    self.cal_target_speed(can_sends, packer, frame, CS, clu11_speed, controls)
 
     CC.sccSmoother.logMessage = max_speed_log
 
@@ -308,7 +308,7 @@ class SccSmoother:
       else:
         self.curve_speed_ms = 255.
 
-  def cal_target_speed(self, CS, clu11_speed, controls):
+  def cal_target_speed(self, can_sends, packer, frame, CS, clu11_speed, controls):
 
     if not self.longcontrol:
       if CS.gas_pressed and self.sync_set_speed_while_gas_pressed and CS.cruise_buttons == Buttons.NONE:
@@ -316,6 +316,7 @@ class SccSmoother:
           set_speed = clip(clu11_speed + SYNC_MARGIN, self.min_set_speed_clu, self.max_set_speed_clu)
           controls.v_cruise_kph = set_speed * self.speed_conv_to_ms * CV.MS_TO_KPH
       elif CS.brake_pressed and self.sync_set_speed_while_gas_pressed and CS.cruise_buttons == Buttons.NONE:
+        can_sends.append(SccSmoother.create_clu11(packer, frame, CS.scc_bus, CS.clu11, Buttons.SET_DECEL))
         if clu11_speed - SYNC_MARGIN > self.kph_to_clu(controls.v_cruise_kph):
           set_speed = clip(clu11_speed - SYNC_MARGIN, self.min_set_speed_clu, self.max_set_speed_clu)
           controls.v_cruise_kph = set_speed * self.speed_conv_to_ms * CV.MS_TO_KPH
