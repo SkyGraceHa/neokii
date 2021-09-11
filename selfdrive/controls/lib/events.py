@@ -172,7 +172,7 @@ class EngagementAlert(Alert):
     super().__init__("", "",
                      AlertStatus.normal, AlertSize.none,
                      Priority.MID, VisualAlert.none,
-                     audible_alert, .2, 0., 0.),
+                     audible_alert, 2.2, 0., 0.),
 
 
 class NormalPermanentAlert(Alert):
@@ -270,7 +270,7 @@ EVENTS: Dict[int, Dict[str, Union[Alert, Callable[[Any, messaging.SubMaster, boo
       "Be ready to take over at any time",
       "Always keep hands on wheel and eyes on road",
       AlertStatus.normal, AlertSize.mid,
-      Priority.LOWER, VisualAlert.none, AudibleAlert.none, 0., 0., 10.),
+      Priority.LOWER, VisualAlert.none, AudibleAlert.none, 0., 0., 2.),
   },
 
   EventName.startupMaster: {
