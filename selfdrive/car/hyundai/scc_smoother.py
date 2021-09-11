@@ -200,7 +200,7 @@ class SccSmoother:
     CC.sccSmoother.autoTrGap = AUTO_TR_CRUISE_GAP
 
     ascc_enabled = CS.acc_mode and enabled and CS.cruiseState_enabled \
-                   and 1 < CS.cruiseState_speed < 255 and not CS.brake_pressed
+                   and 1 < CS.cruiseState_speed < 255 # and not CS.brake_pressed
 
     if not self.longcontrol:
       if not ascc_enabled or CS.standstill or CS.cruise_buttons != Buttons.NONE:
@@ -314,6 +314,10 @@ class SccSmoother:
       if CS.gas_pressed and self.sync_set_speed_while_gas_pressed and CS.cruise_buttons == Buttons.NONE:
         if clu11_speed + SYNC_MARGIN > self.kph_to_clu(controls.v_cruise_kph):
           set_speed = clip(clu11_speed + SYNC_MARGIN, self.min_set_speed_clu, self.max_set_speed_clu)
+          controls.v_cruise_kph = set_speed * self.speed_conv_to_ms * CV.MS_TO_KPH
+      elif CS.brake_pressed and self.sync_set_speed_while_gas_pressed and CS.cruise_buttons == Buttons.NONE:
+        if clu11_speed - SYNC_MARGIN > self.kph_to_clu(controls.v_cruise_kph):
+          set_speed = clip(clu11_speed - SYNC_MARGIN, self.min_set_speed_clu, self.max_set_speed_clu)
           controls.v_cruise_kph = set_speed * self.speed_conv_to_ms * CV.MS_TO_KPH
 
       self.target_speed = self.kph_to_clu(controls.v_cruise_kph)
