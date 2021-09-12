@@ -789,7 +789,7 @@ static void ui_draw_vision_scc_gap(UIState *s) {
   int autoTrGap = scc_smoother.getAutoTrGap();
 
   const int radius = 96;
-  const int center_x = radius + (bdr_s * 2);
+  const int center_x = radius + (bdr_s * 2) + (radius*2 + 50) * 1;
   const int center_y = s->fb_h - footer_h / 2;
 
   NVGcolor color_bg = nvgRGBA(0, 0, 0, (255 * 0.1f));
@@ -827,7 +827,7 @@ static void ui_draw_vision_brake(UIState *s) {
   const UIScene *scene = &s->scene;
 
   const int radius = 96;
-  const int center_x = radius + (bdr_s * 2) + radius*2 + 60;
+  const int center_x = radius + (bdr_s * 2) + (radius*2 + 50) * 2;
   const int center_y = s->fb_h - footer_h / 2;
 
   auto car_state = (*s->sm)["carState"].getCarState();
@@ -846,7 +846,7 @@ static void ui_draw_vision_autohold(UIState *s) {
     return;
 
   const int radius = 96;
-  const int center_x = radius + (bdr_s * 2) + (radius*2 + 60) * 2;
+  const int center_x = radius + (bdr_s * 2) + (radius*2 + 50) * 3;
   const int center_y = s->fb_h - footer_h / 2;
 
   float brake_img_alpha = autohold > 0 ? 1.0f : 0.15f;
@@ -1029,6 +1029,8 @@ void ui_nvg_init(UIState *s) {
 
 	{"custom_lead_vision", "../assets/images/custom_lead_vision.png"},
 	{"custom_lead_radar", "../assets/images/custom_lead_radar.png"},
+
+	{"tire_pressure", "../assets/images/img_tire_pressure.png"},
   };
   for (auto [name, file] : images) {
     s->images[name] = nvgCreateImage(s->vg, file, 1);
