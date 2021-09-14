@@ -95,9 +95,9 @@ static void ui_draw_extras_limit_speed(UIState *s)
 }
 
 static NVGcolor get_tpms_color(float tpms) {
-    if(tpms < 5 || tpms > 60) // N/A
+    if(tpms < 30 || tpms > 45) // N/A
         return nvgRGBA(255, 255, 255, 200);
-    if(tpms < 30)
+    if(tpms < 33 || tpms > 43)
         return nvgRGBA(255, 90, 90, 200);
     return nvgRGBA(255, 255, 255, 200);
 }
@@ -129,6 +129,7 @@ static void ui_draw_extras_tire_pressure(UIState *s)
 
     const int margin = 10;
 
+    nvgBeginPath(s->vg);
     ui_draw_image(s, {x, y, w, h}, "tire_pressure", 0.8f);
 
     nvgFontSize(s->vg, 60);
