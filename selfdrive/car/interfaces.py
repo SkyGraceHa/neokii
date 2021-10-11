@@ -56,6 +56,12 @@ class CarInterfaceBase():
   def init(CP, logcan, sendcan):
     pass
 
+  @staticmethod
+  def get_steer_feedforward(desired_angle, v_ego):
+    # Proportional to realigning tire momentum: lateral acceleration.
+    # TODO: something with lateralPlan.curvatureRates
+    return desired_angle * (v_ego**2)
+
   # returns a set of default params to avoid repetition in car specific params
   @staticmethod
   def get_std_params(candidate, fingerprint):
@@ -86,7 +92,8 @@ class CarInterfaceBase():
     ret.longitudinalTuning.kpV = [1.]
     ret.longitudinalTuning.kiBP = [0.]
     ret.longitudinalTuning.kiV = [1.]
-    ret.longitudinalActuatorDelay = 0.15
+    ret.longitudinalActuatorDelayLowerBound = 0.15
+    ret.longitudinalActuatorDelayUpperBound = 0.15
     return ret
 
   # returns a car.CarState, pass in car.CarControl

@@ -1,10 +1,6 @@
 using Cxx = import "./include/c++.capnp";
 $Cxx.namespace("cereal");
 
-using Java = import "./include/java.capnp";
-$Java.package("ai.comma.openpilot.cereal");
-$Java.outerClassname("Log");
-
 using Car = import "car.capnp";
 using Legacy = import "legacy.capnp";
 
@@ -319,9 +315,11 @@ struct DeviceState @0xa4d8b5af2aa492eb {
   gpuTempC @27 :List(Float32);
   memoryTempC @28 :Float32;
   ambientTempC @30 :Float32;
+  nvmeTempC @35 :List(Float32);
+  modemTempC @36 :List(Float32);
   thermalStatus @14 :ThermalStatus;
   
-  wifiIpAddress @35 :Text;
+  wifiIpAddress @37 :Text;
 
   enum ThermalStatus {
     green @0;
@@ -373,20 +371,14 @@ struct DeviceState @0xa4d8b5af2aa492eb {
 }
 
 struct PandaState @0xa7649e2575e4591e {
-  # from can health
-  voltage @0 :UInt32;
-  current @1 :UInt32;
   ignitionLine @2 :Bool;
   controlsAllowed @3 :Bool;
   gasInterceptorDetected @4 :Bool;
-  hasGps @6 :Bool;
   canSendErrs @7 :UInt32;
   canFwdErrs @8 :UInt32;
   canRxErrs @19 :UInt32;
   gmlanSendErrs @9 :UInt32;
   pandaType @10 :PandaType;
-  fanSpeedRpm @11 :UInt16;
-  usbPowerMode @12 :UsbPowerMode;
   ignitionCan @13 :Bool;
   safetyModel @14 :Car.CarParams.SafetyModel;
   safetyParam @20 :Int16;
@@ -440,13 +432,6 @@ struct PandaState @0xa7649e2575e4591e {
     redPanda @7;
   }
 
-  enum UsbPowerMode {
-    none @0;
-    client @1;
-    cdp @2;
-    dcp @3;
-  }
-
   enum HarnessStatus {
     notConnected @0;
     normal @1;
@@ -454,6 +439,26 @@ struct PandaState @0xa7649e2575e4591e {
   }
 
   startedSignalDetectedDEPRECATED @5 :Bool;
+  voltageDEPRECATED @0 :UInt32;
+  currentDEPRECATED @1 :UInt32;
+  hasGpsDEPRECATED @6 :Bool;
+  fanSpeedRpmDEPRECATED @11 :UInt16;
+  usbPowerModeDEPRECATED @12 :PeripheralState.UsbPowerMode;
+}
+
+struct PeripheralState {
+  pandaType @0 :PandaState.PandaType;
+  voltage @1 :UInt32;
+  current @2 :UInt32;
+  fanSpeedRpm @3 :UInt16;
+  usbPowerMode @4 :UsbPowerMode;
+
+  enum UsbPowerMode @0xa8883583b32c9877 {
+    none @0;
+    client @1;
+    cdp @2;
+    dcp @3;
+  }
 }
 
 struct RadarState @0x9a185389d6fdd05f {
@@ -568,19 +573,19 @@ struct ControlsState @0x97ff69c53601abf1 {
   }
 
   angleSteers @60 :Float32;
-  cluSpeedMs @61 :Float32;
-  applyAccel @62 :Float32;
-  aReqValue @63 :Float32;
-  aReqValueMin @64 :Float32;
-  aReqValueMax @65 :Float32;
+  applyAccel @61 :Float32;
+  aReqValue @62 :Float32;
+  aReqValueMin @63 :Float32;
+  aReqValueMax @64 :Float32;
 
-  steerRatio @66 :Float32;
-  steerRateCost @67 :Float32;
-  steerActuatorDelay @68 :Float32;
-  sccGasFactor @69 :Float32;
-  sccBrakeFactor @70 :Float32;
-  sccCurvatureFactor @71 :Float32;
-  longitudinalActuatorDelay @72 :Float32;
+  steerRatio @65 :Float32;
+  steerRateCost @66 :Float32;
+  steerActuatorDelay @67 :Float32;
+  sccGasFactor @68 :Float32;
+  sccBrakeFactor @69 :Float32;
+  sccCurvatureFactor @70 :Float32;
+  longitudinalActuatorDelayLowerBound @71 :Float32;
+  longitudinalActuatorDelayUpperBound @72 :Float32;
 
   sccStockCamAct @73 :Float32;
   sccStockCamStatus @74 :Float32;
@@ -1319,6 +1324,10 @@ struct LiveParametersData {
   yawRate @7 :Float32;
   posenetSpeed @8 :Float32;
   posenetValid @9 :Bool;
+  angleOffsetFastStd @10 :Float32;
+  angleOffsetAverageStd @11 :Float32;
+  stiffnessFactorStd @12 :Float32;
+  steerRatioStd @13 :Float32;
 }
 
 struct LiveMapDataDEPRECATED {
@@ -1368,6 +1377,7 @@ struct ManagerState {
     name @0 :Text;
     pid @1 :Int32;
     running @2 :Bool;
+    shouldBeRunning @4 :Bool;
     exitCode @3 :Int32;
   }
 }
@@ -1413,7 +1423,8 @@ struct Event {
     can @5 :List(CanData);
     controlsState @7 :ControlsState;
     sensorEvents @11 :List(SensorEventData);
-    pandaState @12 :PandaState;
+    pandaStates @81 :List(PandaState);
+    peripheralState @80 :PeripheralState;
     radarState @13 :RadarState;
     liveTracks @16 :List(LiveTracks);
     sendcan @17 :List(CanData);
@@ -1453,7 +1464,7 @@ struct Event {
     logMessage @18 :Text;
 
     # neokii
-    roadLimitSpeed @80 :RoadLimitSpeed;
+    roadLimitSpeed @82 :RoadLimitSpeed;
 
     # *********** debug ***********
     testJoystick @52 :Joystick;
@@ -1495,5 +1506,6 @@ struct Event {
     kalmanOdometryDEPRECATED @65 :Legacy.KalmanOdometry;
     gpsLocationDEPRECATED @21 :GpsLocationData;
     uiLayoutStateDEPRECATED @57 :Legacy.UiLayoutState;
+    pandaStateDEPRECATED @12 :PandaState;
   }
 }

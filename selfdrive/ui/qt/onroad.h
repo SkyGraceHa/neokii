@@ -6,6 +6,10 @@
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 #include "selfdrive/ui/ui.h"
 
+#ifdef QCOM2
+#include "selfdrive/ui/qt/screenrecorder/screenrecorder.h"
+#endif
+
 
 // ***** onroad widgets *****
 
@@ -32,6 +36,10 @@ public:
   explicit NvgWindow(VisionStreamType type, QWidget* parent = 0) : CameraViewWidget(type, true, parent) {}
   void updateState(const UIState &s);
 
+#ifdef QCOM2
+  ScreenRecoder* recorder;
+#endif
+
 protected:
   void paintGL() override;
   void initializeGL() override;
@@ -46,14 +54,24 @@ public:
   OnroadWindow(QWidget* parent = 0);
   bool isMapVisible() const { return map && map->isVisible(); }
 
+protected:
+  void mousePressEvent(QMouseEvent* e) override;
+  void mouseReleaseEvent(QMouseEvent* e) override;
+
 private:
   void paintEvent(QPaintEvent *event);
-  void mousePressEvent(QMouseEvent* e) override;
   OnroadAlerts *alerts;
   NvgWindow *nvg;
   QColor bg = bg_colors[STATUS_DISENGAGED];
   QWidget *map = nullptr;
   QHBoxLayout* split;
+
+  // neokii
+#ifdef QCOM2
+private:
+  ScreenRecoder* recorder;
+  QPoint startPos;
+#endif
 
 signals:
   void updateStateSignal(const UIState &s);

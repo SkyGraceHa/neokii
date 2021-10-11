@@ -52,13 +52,17 @@ def manager_init():
     ("SccSmootherSyncGasPressed", "0"),
     ("StockNaviDecelEnabled", "0"),
     ("ShowDebugUI", "0"),
-    ("CustomLeadMark", "0")
+    ("CustomLeadMark", "0"),
+    ("NewRadarInterface", "0"),
   ]
   if not PC:
     default_params.append(("LastUpdateTime", datetime.datetime.utcnow().isoformat().encode('utf8')))
 
   if params.get_bool("RecordFrontLock"):
     params.put_bool("RecordFront", True)
+
+  if not params.get_bool("DisableRadar_Allow"):
+    params.delete("DisableRadar")
 
   # set unset params
   for k, v in default_params:

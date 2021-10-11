@@ -1,7 +1,7 @@
 import copy
 import random
 import numpy as np
-from common.numpy_fast import clip, interp, mean
+from common.numpy_fast import clip, interp
 from cereal import car
 from common.realtime import DT_CTRL
 from selfdrive.config import Conversions as CV
@@ -9,7 +9,8 @@ from selfdrive.car.hyundai.values import Buttons
 from common.params import Params
 from selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX, V_CRUISE_MIN, V_CRUISE_DELTA_KM, V_CRUISE_DELTA_MI
 from selfdrive.controls.lib.lane_planner import TRAJECTORY_SIZE
-from selfdrive.controls.lib.lead_mpc import AUTO_TR_CRUISE_GAP
+from selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import AUTO_TR_CRUISE_GAP
+
 from selfdrive.ntune import ntune_scc_get
 from selfdrive.road_speed_limiter import road_speed_limiter_get_max_speed, road_speed_limiter_get_active
 
@@ -179,7 +180,7 @@ class SccSmoother:
 
     return road_limit_speed, left_dist, max_speed_log
 
-  def update(self, enabled, can_sends, packer, CC, CS, frame, apply_accel, controls):
+  def update(self, enabled, can_sends, packer, CC, CS, frame, controls):
 
     # mph or kph
     clu11_speed = CS.clu11["CF_Clu_Vanz"]
@@ -217,7 +218,7 @@ class SccSmoother:
 
     if self.wait_timer > 0:
       self.wait_timer -= 1
-    elif ascc_enabled:
+    elif ascc_enabled and not CS.out.cruiseState.standstill:
 
       if self.alive_timer == 0:
         self.btn = self.get_button(CS.cruiseState_speed * self.speed_conv_to_clu)
@@ -341,7 +342,7 @@ class SccSmoother:
       error = max_speed - self.max_speed_clu
       self.max_speed_clu = self.max_speed_clu + error * kp
 
-  def get_accel(self, CS, sm, accel):
+  def get_apply_accel(self, CS, sm, accel, stopping):
 
     gas_factor = ntune_scc_get("sccGasFactor")
     brake_factor = ntune_scc_get("sccBrakeFactor")
@@ -356,9 +357,9 @@ class SccSmoother:
     else:
       accel *= brake_factor
 
-    if accel < 0:
-      accel = interp(accel - CS.out.aEgo, [-1.0, -0.5], [2 * accel, accel])
-
+    if accel < 0 and not stopping:
+      accel = interp(accel - CS.out.aEgo, [-1.0, -0.5], [1.2 * accel, accel])
+      
     return accel
 
   def get_stock_cam_accel(self, apply_accel, stock_accel, scc11):
