@@ -151,7 +151,7 @@ class CarController():
       can_sends.append(create_mdps12(self.packer, frame, CS.mdps12))
 
     # fix auto resume - by neokii
-    if CS.out.cruiseState.standstill and not CS.out.gasPressed:
+    if CS.out.cruiseState.standstill and (not CS.out.gasPressed or not CS.out.brakePressed):
 
       if self.last_lead_distance == 0:
         self.last_lead_distance = CS.lead_distance

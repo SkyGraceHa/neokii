@@ -20,7 +20,7 @@ def cycle_alerts(duration=2000, is_metric=False):
   #alerts = [EventName.preDriverDistracted, EventName.promptDriverDistracted, EventName.driverDistracted]
   alerts = [EventName.preLaneChangeLeft, EventName.preLaneChangeRight]
 
-  CP = CarInterface.get_params("HYUNDAI GRANDEUR IG 2017")
+  CP = CarInterface.get_params("HYUNDAI GRANDEUR IG FL HEV 2020")
   sm = messaging.SubMaster(['deviceState', 'pandaStates', 'roadCameraState', 'modelV2', 'liveCalibration',
                             'driverMonitoringState', 'longitudinalPlan', 'lateralPlan', 'liveLocationKalman'])
 
