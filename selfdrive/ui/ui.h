@@ -160,8 +160,6 @@ typedef struct UIScene {
   cereal::LiveParametersData::Reader live_params;
   int satelliteCount;
 
-  float gpsAccuracyUblox;  
-
 } UIScene;
 
 typedef struct UIState {
