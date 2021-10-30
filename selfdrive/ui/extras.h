@@ -223,6 +223,36 @@ static void ui_draw_extras_tire_pressure(UIState *s)
     nvgText(s->vg, x+w+margin, y+h-15, get_tpms_text(rr).c_str(), NULL);
 }
 
+static void ui_draw_circle_image_rotation(const UIState *s, int center_x, int center_y, int radius, const char *image, NVGcolor color, float img_alpha, float angleSteers = 0) {
+  const int img_size = radius * 1.5;
+  float img_rotation =  angleSteers/180*3.141592;
+  int ct_pos = -radius * 0.75;
+
+  nvgBeginPath(s->vg);
+  nvgCircle(s->vg, center_x, center_y + (bdr_s+7), radius);
+  nvgFillColor(s->vg, color);
+  nvgFill(s->vg);
+  //ui_draw_image(s, {center_x - (img_size / 2), center_y - (img_size / 2), img_size, img_size}, image, img_alpha);
+
+  nvgSave( s->vg );
+  nvgTranslate(s->vg, center_x, (center_y + (bdr_s*1.5)));
+  nvgRotate(s->vg, -img_rotation);  
+
+  ui_draw_image(s, {ct_pos, ct_pos, img_size, img_size}, image, img_alpha);
+  nvgRestore(s->vg); 
+}
+
+static void draw_compass(UIState *s) {
+  //draw compass by opkr & Hoya
+  if (s->scene.gpsAccuracyUblox != 0.00) {
+    const int radius = 185;
+    const int compass_x = 1920 / 2 - 20;
+    const int compass_y = 1080 - 20;
+    ui_draw_circle_image_rotation(s, compass_x, compass_y, radius + 40, "direction", nvgRGBA(0, 0, 0, 0), 0.7f, -(s->scene.bearingUblox));
+    ui_draw_circle_image_rotation(s, compass_x, compass_y, radius + 40, "compass", nvgRGBA(0, 0, 0, 0), 0.8f);
+  }
+}
+
 static void ui_draw_extras(UIState *s)
 {
     ui_draw_extras_limit_speed(s);
