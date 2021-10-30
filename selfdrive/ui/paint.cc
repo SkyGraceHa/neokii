@@ -787,6 +787,11 @@ static void ui_draw_vision_scc_gap(UIState *s) {
   const int center_x = radius + (bdr_s * 2) + (radius*2 + 50) * 1;
   const int center_y = s->fb_h - footer_h / 2;
 
+  const int x = center_x - 96;
+  const int y = center_y - 96;
+  const int w = radius * 2 ;
+  const int h = radius * 2 ;
+
   NVGcolor color_bg = nvgRGBA(0, 0, 0, (255 * 0.1f));
 
   nvgBeginPath(s->vg);
@@ -796,25 +801,34 @@ static void ui_draw_vision_scc_gap(UIState *s) {
 
   NVGcolor textColor = nvgRGBA(255, 255, 255, 200);
   float textSize = 30.f;
-
   char str[64];
-  if(gap <= 0) {
-    snprintf(str, sizeof(str), "N/A");
-  }
-  else if(longControl && gap == autoTrGap) {
-    snprintf(str, sizeof(str), "AUTO");
-    textColor = nvgRGBA(120, 255, 120, 200);
+
+  if(longControl) { 
+    if (gap == autoTrGap) {
+      snprintf(str, sizeof(str), "AUTO");
+      textColor = nvgRGBA(120, 255, 120, 200);
+    }
+    else if(gap <= 0) {
+      snprintf(str, sizeof(str), "N/A");
+    }  
+    else {
+      snprintf(str, sizeof(str), "%d", (int)gap);
+      textColor = nvgRGBA(120, 255, 120, 200);
+      textSize = 38.f;
+    }
+    nvgTextAlign(s->vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+    ui_draw_text(s, center_x, center_y-36, "GAP", 22 * 2.5f, nvgRGBA(255, 255, 255, 200), "sans-bold");
+    ui_draw_text(s, center_x, center_y+22, str, textSize * 2.5f, textColor, "sans-bold");
   }
   else {
-    snprintf(str, sizeof(str), "%d", (int)gap);
-    textColor = nvgRGBA(120, 255, 120, 200);
-    textSize = 38.f;
+    if(gap <= 0) {ui_draw_image(s, {x, y, w, h}, "lead_car_dist_0", 0.3f);}
+    else if (gap == 1) {ui_draw_image(s, {x, y, w, h}, "lead_car_dist_1", 0.5f);}
+    else if (gap == 2) {ui_draw_image(s, {x, y, w, h}, "lead_car_dist_2", 0.5f);}
+    else if (gap == 3) {ui_draw_image(s, {x, y, w, h}, "lead_car_dist_3", 0.5f);}
+    else if (gap == 4) {ui_draw_image(s, {x, y, w, h}, "lead_car_dist_4", 0.5f);}
+    else {ui_draw_image(s, {x, y, w, h}, "lead_car_dist_0", 0.3f);}
   }
 
-  nvgTextAlign(s->vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-
-  ui_draw_text(s, center_x, center_y-36, "GAP", 22 * 2.5f, nvgRGBA(255, 255, 255, 200), "sans-bold");
-  ui_draw_text(s, center_x, center_y+22, str, textSize * 2.5f, textColor, "sans-bold");
 }
 
 static void ui_draw_vision_brake(UIState *s) {
@@ -1037,6 +1051,11 @@ void ui_nvg_init(UIState *s) {
     {"custom_lead_vision", "../assets/images/custom_lead_vision.png"},
     {"custom_lead_radar", "../assets/images/custom_lead_radar.png"},
     {"tire_pressure", "../assets/images/img_tire_pressure.png"},
+    {"lead_car_dist_0", "../assets/images/car_dist_0.png"},
+    {"lead_car_dist_1", "../assets/images/car_dist_1.png"},    
+    {"lead_car_dist_2", "../assets/images/car_dist_2.png"},
+    {"lead_car_dist_3", "../assets/images/car_dist_3.png"},
+    {"lead_car_dist_4", "../assets/images/car_dist_4.png"},    
   };
   for (auto [name, file] : images) {
     s->images[name] = nvgCreateImage(s->vg, file, 1);
