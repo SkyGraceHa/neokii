@@ -245,10 +245,7 @@ static void update_extras(UIState *s)
     scene.car_control = sm["carControl"].getCarControl();
 
    if(sm.updated("gpsLocationExternal"))
-    scene.gps_ext = sm["gpsLocationExternal"].getGpsLocationExternal();
-    auto ge_data = sm["gpsLocationExternal"].getGpsLocationExternal();
-    scene.gpsAccuracyUblox = ge_data.getAccuracy(); 
-    scene.bearingUblox = ge_data.getBearingDeg();    
+    scene.gps_ext = sm["gpsLocationExternal"].getGpsLocationExternal();  
 
    if(sm.updated("liveParameters"))
     scene.live_params = sm["liveParameters"].getLiveParameters();
