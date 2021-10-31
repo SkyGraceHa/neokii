@@ -161,6 +161,7 @@ typedef struct UIScene {
   int satelliteCount;
 
   float gpsAccuracyUblox;  
+  float bearingUblox;  
 
 } UIScene;
 
