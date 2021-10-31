@@ -246,7 +246,8 @@ static void update_extras(UIState *s)
 
    if(sm.updated("gpsLocationExternal"))
     scene.gps_ext = sm["gpsLocationExternal"].getGpsLocationExternal();
-    scene.gpsAccuracyUblox = ge_data.getAccuracy();    
+    auto ge_data = sm["gpsLocationExternal"].getGpsLocationExternal();
+    scene.gpsAccuracyUblox = ge_data.getAccuracy(); 
 
    if(sm.updated("liveParameters"))
     scene.live_params = sm["liveParameters"].getLiveParameters();
