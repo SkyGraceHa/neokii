@@ -706,6 +706,7 @@ struct ModelDataV2 {
   orientation @5 :XYZTData;
   velocity @6 :XYZTData;
   orientationRate @7 :XYZTData;
+  acceleration @19 :XYZTData;
 
   # prediction lanelines and road edges
   laneLines @8 :List(XYZTData);
@@ -886,15 +887,15 @@ struct LateralPlan @0xe1e9318e2ae8b51e {
   desire @17 :Desire;
   laneChangeState @18 :LaneChangeState;
   laneChangeDirection @19 :LaneChangeDirection;
-
+  useLaneLines @29 :Bool;
 
   # desired curvatures over next 2.5s in rad/m
   psis @26 :List(Float32);
   curvatures @27 :List(Float32);
   curvatureRates @28 :List(Float32);
   
-  autoLaneChangeEnabled @29 :Bool;
-  autoLaneChangeTimer @30 :Int8;
+  autoLaneChangeEnabled @30 :Bool;
+  autoLaneChangeTimer @31 :Int8;
 
   enum Desire {
     none @0;
@@ -1396,6 +1397,44 @@ struct UploaderState {
   lastFilename @6 :Text;
 }
 
+struct NavInstruction {
+  maneuverPrimaryText @0 :Text;
+  maneuverSecondaryText @1 :Text;
+  maneuverDistance @2 :Float32;  # m
+  maneuverType @3 :Text; # TODO: Make Enum
+  maneuverModifier @4 :Text; # TODO: Make Enum
+
+  distanceRemaining @5 :Float32; # m
+  timeRemaining @6 :Float32; # s
+  timeRemainingTypical @7 :Float32; # s
+
+  lanes @8 :List(Lane);
+  showFull @9 :Bool;
+
+  struct Lane {
+    directions @0 :List(Direction);
+    active @1 :Bool;
+    activeDirection @2 :Direction;
+  }
+
+  enum Direction {
+    none @0;
+    left @1;
+    right @2;
+    straight @3;
+  }
+
+}
+
+struct NavRoute {
+  coordinates @0 :List(Coordinate);
+
+  struct Coordinate {
+    latitude @0 :Float32;
+    longitude @1 :Float32;
+  }
+}
+
 struct RoadLimitSpeed {
     active @0 :UInt16;
     roadLimitSpeed @1 :UInt16;
@@ -1465,8 +1504,12 @@ struct Event {
     deviceState @6 :DeviceState;
     logMessage @18 :Text;
 
+    # navigation
+    navInstruction @82 :NavInstruction;
+    navRoute @83 :NavRoute;
+    
     # neokii
-    roadLimitSpeed @82 :RoadLimitSpeed;
+    roadLimitSpeed @84 :RoadLimitSpeed;
 
     # *********** debug ***********
     testJoystick @52 :Joystick;

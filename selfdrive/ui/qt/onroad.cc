@@ -6,10 +6,10 @@
 #include "selfdrive/common/timing.h"
 #include "selfdrive/ui/paint.h"
 #include "selfdrive/ui/qt/util.h"
+#include "selfdrive/ui/qt/api.h"
 #ifdef ENABLE_MAPS
 #include "selfdrive/ui/qt/maps/map.h"
 #endif
-
 
 OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
   QVBoxLayout *main_layout  = new QVBoxLayout(this);
@@ -41,6 +41,14 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
 
 #ifdef QCOM2
   // screen recoder - neokii
+
+  record_timer = std::make_shared<QTimer>();
+	QObject::connect(record_timer.get(), &QTimer::timeout, [=]() {
+    if(recorder)
+      recorder->update_screen();
+  });
+	record_timer->start(1000/UI_FREQ);
+
   QWidget* recorder_widget = new QWidget(this);
   QVBoxLayout * recorder_layout = new QVBoxLayout (recorder_widget);
   recorder_layout->setMargin(35);
@@ -149,17 +157,21 @@ void OnroadWindow::mousePressEvent(QMouseEvent* e) {
 void OnroadWindow::offroadTransition(bool offroad) {
 #ifdef ENABLE_MAPS
   if (!offroad) {
-    QString token = QString::fromStdString(Params().get("MapboxToken"));
-    if (map == nullptr && !token.isEmpty()) {
+    if (map == nullptr && (QUIState::ui_state.has_prime || !MAPBOX_TOKEN.isEmpty())) {
       QMapboxGLSettings settings;
+
+      // Valid for 4 weeks since we can't swap tokens on the fly
+      QString token = MAPBOX_TOKEN.isEmpty() ? CommaApi::create_jwt({}, 4 * 7 * 24 * 3600) : MAPBOX_TOKEN;
+
       if (!Hardware::PC()) {
         settings.setCacheDatabasePath("/data/mbgl-cache.db");
       }
+      settings.setApiBaseUrl(MAPS_HOST);
       settings.setCacheDatabaseMaximumSize(20 * 1024 * 1024);
       settings.setAccessToken(token.trimmed());
 
       MapWindow * m = new MapWindow(settings);
-      m->setFixedWidth(width() / 2 - bdr_s);
+      m->setFixedWidth(topWidget(this)->width() / 2);
       QObject::connect(this, &OnroadWindow::offroadTransitionSignal, m, &MapWindow::offroadTransition);
       split->addWidget(m, 0, Qt::AlignRight);
       map = m;
@@ -261,11 +273,6 @@ void NvgWindow::initializeGL() {
 void NvgWindow::paintGL() {
   CameraViewWidget::paintGL();
   ui_draw(&QUIState::ui_state, width(), height());
-
-#ifdef QCOM2
-  if(recorder)
-    recorder->ui_draw(&QUIState::ui_state, width(), height());
-#endif
 
   double cur_draw_t = millis_since_boot();
   double dt = cur_draw_t - prev_draw_t;
