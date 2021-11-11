@@ -162,9 +162,9 @@ static void draw_lead_custom(UIState *s, const cereal::RadarState::LeadData::Rea
     y = std::fmin(s->fb_h - sz * .6, y);
     y = std::fmin(s->fb_h * 0.8f, y);
 
-    //float bg_alpha = 1.0f;
+    float bg_alpha = 1.0f;
     float img_alpha = 1.0f;
-    //NVGcolor bg_color = nvgRGBA(0, 0, 0, (255 * bg_alpha));
+    NVGcolor bg_color = nvgRGBA(0, 0, 0, (255 * bg_alpha));
 
     const char* image = lead_data.getRadar() ? "custom_lead_radar" : "custom_lead_vision";
 
