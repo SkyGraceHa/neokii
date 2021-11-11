@@ -135,6 +135,10 @@ def manager_thread():
 
   Process(name="road_speed_limiter", target=launcher, args=("selfdrive.road_speed_limiter",)).start()
 
+  if EON:
+    system("am startservice com.neokii.optool/.MainService")
+    system("am startservice com.neokii.openpilot/.MainService")
+
   cloudlog.info("manager start")
   cloudlog.info({"environ": os.environ})
 
